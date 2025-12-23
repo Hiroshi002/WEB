@@ -1,87 +1,99 @@
-import fs from "fs";
-import path from "path";
+// src/app/api/admin/members/route.ts  (หรือตำแหน่งเดิมของคุณ)
+
 import { NextResponse } from "next/server";
-
-/* 🔥 FIX PATH */
-const filePath = path.join(process.cwd(), "src/data/members.json");
-
-/* ================= UTIL ================= */
-function readJSON() {
-  if (!fs.existsSync(filePath)) return [];
-  const data = fs.readFileSync(filePath, "utf-8");
-  return data.trim() ? JSON.parse(data) : [];
-}
-
-function writeJSON(data: any[]) {
-  const dir = path.dirname(filePath);
-
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-}
-
-function now() {
-  return new Date().toISOString().replace("T", " ").slice(0, 19);
-}
+import { supabase } from "@/lib/supabase";  // ปรับ path ให้ตรงกับที่คุณสร้าง
 
 /* ================= GET ================= */
+// ดึง members ทั้งหมดมาแสดงในตาราง
 export async function GET() {
-  return NextResponse.json(readJSON());
+  const { data: members, error } = await supabase
+    .from("members")
+    .select("*")
+    .order("joined", { ascending: false });  // เรียงจากใหม่ไปเก่า (หรือเปลี่ยนได้)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(members || []);
 }
 
 /* ================= POST ================= */
+// เพิ่ม member ใหม่
 export async function POST(req: Request) {
-  const members = readJSON();
   const body = await req.json();
 
-  const maxId = members.length
-    ? Math.max(...members.map((m: any) => Number(m.id)))
-    : 0;
+  const { data, error } = await supabase
+    .from("members")
+    .insert([
+      {
+        name: body.name,
+        title: body.title || "",
+        role: body.role || "CONSTANCY",
+        status: body.status || "ACTIVE",
+        // joined จะ gen อัตโนมัติจาก default now() ใน table
+      },
+    ])
+    .select()  // คืนข้อมูล member ที่เพิ่มใหม่กลับมา
+    .single();
 
-  const newMember = {
-    id: maxId + 1,          // ✅ ID เรียง 1,2,3,...
-    name: body.name,
-    role: body.role,
-    title: body.title || "",
-    status: body.status || "ACTIVE",
-    joined: now(),          // ✅ เวลาจริงตอนเพิ่ม
-  };
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  members.push(newMember);
-  writeJSON(members);
-
-  return NextResponse.json(newMember);
+  return NextResponse.json(data);
 }
 
 /* ================= PUT ================= */
+// แก้ไข member (เช่น เปลี่ยน role, status, title)
 export async function PUT(req: Request) {
-  const members = readJSON();
   const body = await req.json();
 
-  const index = members.findIndex((m: any) => m.id === body.id);
-  if (index === -1) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!body.id) {
+    return NextResponse.json({ error: "ID is required" }, { status: 400 });
   }
 
-  members[index] = {
-    ...members[index],
-    ...body,
-    updated: now(),       // (optional) เวลาแก้ไข
-  };
+  const { data, error } = await supabase
+    .from("members")
+    .update({
+      name: body.name,
+      title: body.title,
+      role: body.role,
+      status: body.status,
+      // updated_at ถ้าอยากมี สร้าง column เพิ่มใน table ได้
+    })
+    .eq("id", body.id)
+    .select()
+    .single();
 
-  writeJSON(members);
-  return NextResponse.json(members[index]);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Member not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(data);
 }
 
 /* ================= DELETE ================= */
+// ลบ member
 export async function DELETE(req: Request) {
-  const members = readJSON();
-  const { id } = await req.json();
+  const body = await req.json();
 
-  const filtered = members.filter((m: any) => m.id !== id);
-  writeJSON(filtered);
+  if (!body.id) {
+    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("members")
+    .delete()
+    .eq("id", body.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ success: true });
 }
