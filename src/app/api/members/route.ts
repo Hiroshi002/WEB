@@ -1,21 +1,30 @@
-// src/app/api/admin/members/route.ts  (หรือตำแหน่งเดิมของคุณ)
-
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";  // ปรับ path ให้ตรงกับที่คุณสร้าง
+import { supabase } from "@/lib/supabase";
+
+/**
+ * ❗ สำคัญมาก
+ * ปิด cache ของ Next.js / Vercel
+ */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /* ================= GET ================= */
-// ดึง members ทั้งหมดมาแสดงในตาราง
+// ดึง members ทั้งหมด
 export async function GET() {
-  const { data: members, error } = await supabase
+  const { data, error } = await supabase
     .from("members")
     .select("*")
-    .order("joined", { ascending: false });  // เรียงจากใหม่ไปเก่า (หรือเปลี่ยนได้)
+    .order("joined", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("GET members error:", error);
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 
-  return NextResponse.json(members || []);
+  return NextResponse.json(data ?? []);
 }
 
 /* ================= POST ================= */
@@ -23,34 +32,45 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json();
 
+  if (!body.name) {
+    return NextResponse.json(
+      { error: "Name is required" },
+      { status: 400 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("members")
-    .insert([
-      {
-        name: body.name,
-        title: body.title || "",
-        role: body.role || "CONSTANCY",
-        status: body.status || "ACTIVE",
-        // joined จะ gen อัตโนมัติจาก default now() ใน table
-      },
-    ])
-    .select()  // คืนข้อมูล member ที่เพิ่มใหม่กลับมา
+    .insert({
+      name: body.name,
+      title: body.title || "",
+      role: body.role || "CONSTANCY",
+      status: body.status || "ACTIVE",
+    })
+    .select()
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("POST member error:", error);
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json(data);
 }
 
 /* ================= PUT ================= */
-// แก้ไข member (เช่น เปลี่ยน role, status, title)
+// แก้ไข member
 export async function PUT(req: Request) {
   const body = await req.json();
 
   if (!body.id) {
-    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "ID is required" },
+      { status: 400 }
+    );
   }
 
   const { data, error } = await supabase
@@ -60,18 +80,24 @@ export async function PUT(req: Request) {
       title: body.title,
       role: body.role,
       status: body.status,
-      // updated_at ถ้าอยากมี สร้าง column เพิ่มใน table ได้
     })
     .eq("id", body.id)
     .select()
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("PUT member error:", error);
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 
   if (!data) {
-    return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Member not found" },
+      { status: 404 }
+    );
   }
 
   return NextResponse.json(data);
@@ -80,19 +106,26 @@ export async function PUT(req: Request) {
 /* ================= DELETE ================= */
 // ลบ member
 export async function DELETE(req: Request) {
-  const body = await req.json();
+  const { id } = await req.json();
 
-  if (!body.id) {
-    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+  if (!id) {
+    return NextResponse.json(
+      { error: "ID is required" },
+      { status: 400 }
+    );
   }
 
   const { error } = await supabase
     .from("members")
     .delete()
-    .eq("id", body.id);
+    .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("DELETE member error:", error);
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

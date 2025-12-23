@@ -1,81 +1,71 @@
-// src/app/api/members/stream/route.ts  (หรือตำแหน่งเดิมของคุณ)
+import { supabase } from "@/lib/supabase";
 
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";  // ปรับ path ให้ตรง
-
-export const dynamic = "force-dynamic";  // สำคัญ! บังคับให้ route นี้เป็น dynamic
-export const runtime = "edge";           // ใช้ Edge Runtime จะเร็วและเสถียรกว่า (แนะนำ)
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; // ❗ เปลี่ยนเป็น nodejs (Realtime + SSE เสถียรกว่า)
 
 export async function GET() {
   const encoder = new TextEncoder();
 
-  // สร้าง ReadableStream สำหรับ SSE
+  let channel: any = null;
+
   const stream = new ReadableStream({
     async start(controller) {
-      // ดึงข้อมูลเริ่มต้นก่อน แล้วส่งให้ client
-      const { data: initialData, error: initialError } = await supabase
+      /* ===== ส่งข้อมูลเริ่มต้น ===== */
+      const { data, error } = await supabase
         .from("members")
         .select("*")
         .order("joined", { ascending: false });
 
-      if (initialError) {
+      if (error) {
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: initialError.message })}\n\n`)
+          encoder.encode(
+            `event: error\ndata: ${JSON.stringify(error.message)}\n\n`
+          )
         );
         controller.close();
         return;
       }
 
-      // ส่งข้อมูลแรกสุด
       controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify(initialData || [])}\n\n`)
+        encoder.encode(
+          `event: init\ndata: ${JSON.stringify(data ?? [])}\n\n`
+        )
       );
 
-      // ตั้ง Realtime subscription
-      const channel = supabase
-        .channel("members-changes")
+      /* ===== Realtime ===== */
+      channel = supabase
+        .channel("members-stream")
         .on(
           "postgres_changes",
           {
-            event: "*",         // รับทุก event: INSERT, UPDATE, DELETE
+            event: "*",
             schema: "public",
             table: "members",
           },
           (payload) => {
-            // ส่ง payload ใหม่ให้ client ทุกคนที่กำลังเชื่อมต่อ
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
+              encoder.encode(
+                `event: update\ndata: ${JSON.stringify(payload)}\n\n`
+              )
             );
           }
         )
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("Supabase Realtime subscribed!");
-          }
-          if (status === "CLOSED" || status === "CHANNEL_ERROR") {
-            controller.close();
-          }
-        });
-
-      // เมื่อ client ตัดการเชื่อมต่อ → unsubscribe
-      return () => {
-        supabase.removeChannel(channel);
-        controller.close();
-      };
+        .subscribe();
     },
 
     cancel() {
-      // Client disconnect
-      console.log("Client disconnected from members stream");
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     },
   });
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
-      "Access-Control-Allow-Origin": "*",  // ถ้าใช้จาก frontend domain เดียว เปลี่ยนเป็น domain คุณแทน
+      "X-Accel-Buffering": "no", // กัน proxy buffer
     },
   });
 }

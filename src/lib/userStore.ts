@@ -1,5 +1,4 @@
-// src/lib/userStore.ts
-import members from "@/data/members.json";
+import { supabase } from "@/lib/supabase";
 
 export type User = {
   id: string;
@@ -10,6 +9,16 @@ export type User = {
   joined: string;
 };
 
-export function loadUsers(): User[] {
-  return members as User[];
+export async function loadUsers(): Promise<User[]> {
+  const { data, error } = await supabase
+    .from("members")
+    .select("*")
+    .order("role");
+
+  if (error) {
+    console.error(error);
+    return [];
+  }
+
+  return data as User[];
 }
