@@ -36,7 +36,7 @@
     "src/app/api/admin/me/route.js",
     "src/app/api/members/route.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "src/app/api/admin/logout/route.js"  ],
   "exclude": [
     "node_modules"
   ]

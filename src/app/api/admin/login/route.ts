@@ -1,33 +1,76 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import admins from "@/data/admins.json";
+import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: Request) {
-  const { username, password } = await req.json();
+  try {
+    const { username, password } = await req.json();
 
-  const admin = admins.find(
-    (a) => a.username === username && a.password === password
-  );
+    if (!username || !password) {
+      return NextResponse.json(
+        { message: "กรอกข้อมูลไม่ครบ" },
+        { status: 400 }
+      );
+    }
 
-  if (!admin) {
+    const { data: admin, error } = await supabase
+      .from("admins")
+      .select("username, password_hash, role")
+      .eq("username", username)
+      .single();
+
+    console.log("LOGIN INPUT:", username, password);
+    console.log("DB ADMIN:", admin);
+    console.log("DB ERROR:", error);
+
+    if (!admin) {
+      return NextResponse.json(
+        { message: "ไม่พบผู้ใช้" },
+        { status: 401 }
+      );
+    }
+
+    // ✅ เปรียบเทียบ bcrypt
+    const isMatch = await bcrypt.compare(
+      password,
+      admin.password_hash
+    );
+
+    console.log("PASSWORD MATCH:", isMatch);
+
+    if (!isMatch) {
+      return NextResponse.json(
+        { message: "รหัสผ่านไม่ถูกต้อง" },
+        { status: 401 }
+      );
+    }
+
+    const res = NextResponse.json({ success: true });
+
+    res.cookies.set(
+      "admin",
+      JSON.stringify({
+        username: admin.username,
+        role: admin.role,
+      }),
+      {
+        httpOnly: true,
+        path: "/",
+        maxAge: 60 * 60 * 24,
+      }
+    );
+
+    return res;
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
     return NextResponse.json(
-      { message: "Invalid credentials" },
-      { status: 401 }
+      { message: "Server error" },
+      { status: 500 }
     );
   }
-
-  // แก้ตรงนี้: await cookies() ก่อน แล้วค่อย set
-  const cookieStore = await cookies();
-  cookieStore.set("admin", JSON.stringify({
-    username: admin.username,
-    role: admin.role,
-  }), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",  // เพิ่ม secure ใน production เพื่อความปลอดภัย
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,  // เช่น 7 วัน (แนะนำให้ตั้ง expiration)
-    sameSite: "strict",       // ป้องกัน CSRF
-  });
-
-  return NextResponse.json({ success: true });
 }

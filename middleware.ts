@@ -2,24 +2,22 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const adminCookie = req.cookies.get("admin");
+  const admin = req.cookies.get("admin");
+  const { pathname } = req.nextUrl;
 
-  const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
-  const isLoginPage = req.nextUrl.pathname === "/admin/login";
-
-  // ❌ ไม่มี cookie และไม่ใช่หน้า login
-  if (isAdminRoute && !adminCookie && !isLoginPage) {
-    return NextResponse.redirect(new URL("/admin/login", req.url));
+  // หน้า public
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/check") ||
+    pathname.startsWith("/api")
+  ) {
+    return NextResponse.next();
   }
 
-  // ✅ มี cookie แต่เข้า login → เด้งเข้าหน้า admin
-  if (isLoginPage && adminCookie) {
-    return NextResponse.redirect(new URL("/admin", req.url));
+  // หน้า admin ต้องมี cookie
+  if (!admin && pathname.startsWith("/admin")) {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: ["/admin/:path*"],
-};
