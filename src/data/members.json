@@ -1,0 +1,53 @@
+[
+  {
+    "id": "1",
+    "name": "Krma Nightcore",
+    "role": "HEAD",
+    "title": "Founder / Owner",
+    "status": "ACTIVE",
+    "joined": "2024-01-12"
+  },
+  {
+    "id": "2",
+    "name": "Astra",
+    "role": "HEAD",
+    "title": "Lead Administrator",
+    "status": "ACTIVE",
+    "joined": "2024-02-05",
+    "updated": "2025-12-23 03:17:00"
+  },
+  {
+    "id": "3",
+    "name": "Nyx",
+    "role": "VIP",
+    "title": "Support Team",
+    "status": "ACTIVE",
+    "joined": "2024-02-10",
+    "updated": "2025-12-23 04:30:23"
+  },
+  {
+    "id": "4",
+    "name": "ZeroX",
+    "role": "EXCLUSIVE",
+    "title": "Exclusive Member",
+    "status": "ACTIVE",
+    "joined": "2024-03-01",
+    "updated": "2025-12-23 04:57:37"
+  },
+  {
+    "id": "5",
+    "name": "Luna",
+    "role": "S.VIP",
+    "title": "Super VIP Member",
+    "status": "ACTIVE",
+    "joined": "2024-03-12"
+  },
+  {
+    "id": "7",
+    "name": "Echo",
+    "role": "CONSTANCY",
+    "title": "Constancy Member",
+    "status": "INACTIVE",
+    "joined": "2024-04-20"
+  }
+]

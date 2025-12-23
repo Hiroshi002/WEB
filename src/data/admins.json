@@ -1,0 +1,26 @@
+[
+  {
+    "username": "HEAD",
+    "password": "head-constancy-2025",
+    "role": "HEAD",
+    "createdAt": "2024-01-12"
+  },
+  {
+    "username": "Krma",
+    "password": "krma1234",
+    "role": "LEAD",
+    "createdAt": "2024-03-02"
+  },
+  {
+    "username": "Support01",
+    "password": "support123",
+    "role": "SUPPORT",
+    "createdAt": "2024-05-10"
+  },
+  {
+    "username": "Dev",
+    "password": "441288",
+    "role": "HEAD",
+    "createdAt":"2024-01-12"
+  }
+]
